@@ -1,12 +1,10 @@
 package main
 
 import (
-	"log"
-	"net/http"
-	"test-pagination-pg-go/pfm"
-
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"log"
+	"net/http"
 )
 
 func main() {
@@ -16,9 +14,6 @@ func main() {
 		log.Fatal("Database connection failed:", err)
 	} // Aktifkan debug mode
 	db = db.Debug()
-
-	// Setup routes
-	pfm.SetupRoutes(db)
 
 	// Start server
 	log.Println("Server started at :8080")
