@@ -2,7 +2,10 @@ module test-pagination-pg-go
 
 go 1.20
 
-require gorm.io/gorm v1.25.11
+require (
+	github.com/gorilla/mux v1.8.1
+	gorm.io/gorm v1.25.11
+)
 
 require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect

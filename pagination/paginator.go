@@ -63,9 +63,13 @@ func (p *Paginator) Paginate(result interface{}) (*PaginationResult, error) {
 
 	// Apply groupings
 	if len(p.Groups) > 0 {
-		query = query.Group(clause.GroupBy{
+		groupByClause := clause.GroupBy{
 			Columns: make([]clause.Column, len(p.Groups)),
-		}.Name(p.Groups...))
+		}
+		for i, group := range p.Groups {
+			groupByClause.Columns[i] = clause.Column{Name: group}
+		}
+		query = query.Clauses(groupByClause)
 	}
 
 	// Apply orderings
