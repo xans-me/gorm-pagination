@@ -3,6 +3,8 @@ package pagination
 import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"strconv"
+	"strings"
 )
 
 // Paginator handles the pagination logic.
@@ -92,6 +94,12 @@ func (p *Paginator) Paginate(result interface{}) (*PaginationResult, error) {
 		return nil, err
 	}
 
+	// Calculate TotalPages safely
+	totalPages := int(p.Total / int64(p.PageSize))
+	if p.Total%int64(p.PageSize) != 0 {
+		totalPages++
+	}
+
 	// Calculate summary if requested
 	summary := p.Summary(result)
 
@@ -100,7 +108,7 @@ func (p *Paginator) Paginate(result interface{}) (*PaginationResult, error) {
 		Total:      p.Total,
 		Page:       p.Page,
 		PageSize:   p.PageSize,
-		TotalPages: int((p.Total + int64(p.PageSize) - 1) / int64(p.PageSize)),
+		TotalPages: totalPages,
 		Summary:    summary,
 	}, nil
 }
@@ -113,9 +121,43 @@ func (p *Paginator) Summary(model interface{}) map[string]interface{} {
 
 	summary := make(map[string]interface{})
 	for _, field := range p.SummaryFields {
-		var result float64
-		p.DB.Model(model).Select("SUM(" + field + ")").Scan(&result)
-		summary[field] = result
+		// Expecting field to be in format "field:aggregationType"
+		parts := strings.Split(field, ":")
+		fieldName := parts[0]
+		aggregationType := "sum" // Default to sum if not specified
+		if len(parts) > 1 {
+			aggregationType = parts[1]
+		}
+
+		switch aggregationType {
+		case "sum":
+			var sumResult float64
+			p.DB.Model(model).Select("SUM(" + fieldName + ")").Scan(&sumResult)
+			summary[fieldName+"_sum"] = sumResult
+
+		case "min":
+			var minResult float64
+			p.DB.Model(model).Select("MIN(" + fieldName + ")").Scan(&minResult)
+			summary[fieldName+"_min"] = minResult
+
+		case "max":
+			var maxResult float64
+			p.DB.Model(model).Select("MAX(" + fieldName + ")").Scan(&maxResult)
+			summary[fieldName+"_max"] = maxResult
+
+		case "distribution":
+			var distribution []map[string]interface{}
+			p.DB.Model(model).Select(fieldName + ", COUNT(*) as count").Group(fieldName).Order(fieldName).Scan(&distribution)
+			summary[fieldName+"_distribution"] = distribution
+
+		case "top":
+			// Top N Categories (e.g., top 5 categories)
+			topN := 5 // Default to top 5, can be parameterized if needed
+			var topCategories []map[string]interface{}
+			p.DB.Model(model).Select(fieldName + ", COUNT(*) as count").Group(fieldName).Order("count DESC").Limit(topN).Scan(&topCategories)
+			summary[fieldName+"_top_"+strconv.Itoa(topN)+"_categories"] = topCategories
+		}
 	}
+
 	return summary
 }
