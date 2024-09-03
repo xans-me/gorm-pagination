@@ -18,7 +18,7 @@ func init() {
 	if err != nil {
 		log.Fatalf("Could not connect to the database: %v", err)
 	}
-
+	db.Debug()
 }
 
 // GetDB returns the database instance.

@@ -9,7 +9,6 @@ import (
 
 func GetPaginatedTransactions(r *http.Request) (interface{}, error) {
 	db := GetDB()
-	db.Debug()
 
 	// Get query parameters
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
