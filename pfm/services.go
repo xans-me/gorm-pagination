@@ -1,6 +1,7 @@
 package pfm
 
 import (
+	"gorm.io/gorm"
 	"net/http"
 	"strconv"
 	"test-pagination-pg-go/pagination"
@@ -9,7 +10,7 @@ import (
 func GetPaginatedTransactions(r *http.Request) (interface{}, error) {
 	db := GetDB()
 
-	// Ambil query parameters
+	// Parse query parameters
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	if page == 0 {
 		page = 1
@@ -25,69 +26,34 @@ func GetPaginatedTransactions(r *http.Request) (interface{}, error) {
 	dateEnd := r.URL.Query().Get("dateEnd")
 	accountNumber := r.URL.Query().Get("account_number")
 	trxAmountStr := r.URL.Query().Get("trx_amount")
-	search := r.URL.Query().Get("search") // Ambil parameter search
+	search := r.URL.Query().Get("search")
 
-	// Konversi trxAmount ke float64
+	// Convert transaction amount to float64
 	var trxAmount float64
 	if trxAmountStr != "" {
 		trxAmount, _ = strconv.ParseFloat(trxAmountStr, 64)
 	}
 
-	// Buat FilterManager untuk mengelola filter
+	// Initialize base query
+	query := db.Model(&TransactionData{})
+
+	// Initialize FilterManager
 	filterManager := pagination.FilterManager{}
 
-	// Tambahkan filter untuk trx_date
-	if dateStart != "" && dateEnd != "" {
-		filterManager.AddAndFilter(pagination.DateRangeFilter{
-			Field:     "trx_date",
-			StartDate: dateStart,
-			EndDate:   dateEnd,
-		})
-	}
+	// Add filters to FilterManager
+	addDateRangeFilter(&filterManager, dateStart, dateEnd)
+	addTransactionAmountFilter(&filterManager, trxAmount)
 
-	// Tambahkan filter untuk account_number
-	if accountNumber != "" {
-		filterManager.AddAndFilter(pagination.ComparisonFilter{
-			Field:    "account_number",
-			Operator: "=",
-			Value:    accountNumber,
-		})
-	}
+	// Apply filters from FilterManager
+	query = filterManager.Apply(query)
 
-	// Tambahkan filter untuk trx_amount
-	if trxAmount > 0 {
-		filterManager.AddAndFilter(pagination.ComparisonFilter{
-			Field:    "trx_amount",
-			Operator: ">=",
-			Value:    trxAmount,
-		})
-	}
+	// Apply manual filters
+	query = applyManualFilters(query, accountNumber, search)
 
-	// Tambahkan filter OR untuk trx_type (pengeluaran OR pemasukan)
-	filterManager.AddOrFilter(pagination.ComparisonFilter{
-		Field:    "trx_type",
-		Operator: "=",
-		Value:    "pengeluaran",
-	})
+	// Debugging query
+	query = query.Debug()
 
-	filterManager.AddOrFilter(pagination.ComparisonFilter{
-		Field:    "trx_type",
-		Operator: "=",
-		Value:    "pemasukan",
-	})
-
-	// Tambahkan filter pencarian untuk CIF menggunakan LIKE
-	if search != "" {
-		filterManager.AddAndFilter(pagination.SearchFilter{
-			Field: "cif",  // Field CIF untuk pencarian
-			Value: search, // Nilai yang dicari
-		})
-	}
-
-	// Terapkan filter ke query
-	query := filterManager.Apply(db.Model(&BrimoPFM{})).Debug()
-
-	// Terapkan sorting dan pagination
+	// Initialize paginator
 	paginator := pagination.NewPaginator(
 		query,
 		pagination.WithPage(page),
@@ -95,11 +61,46 @@ func GetPaginatedTransactions(r *http.Request) (interface{}, error) {
 		pagination.WithSort(sort...),
 	)
 
-	var transactions []BrimoPFM
+	// Execute pagination and return results
+	var transactions []TransactionData
 	result, err := paginator.Paginate(&transactions)
 	if err != nil {
 		return nil, err
 	}
 
 	return result, nil
+}
+
+// addDateRangeFilter adds a date range filter to the FilterManager.
+func addDateRangeFilter(filterManager *pagination.FilterManager, dateStart, dateEnd string) {
+	if dateStart != "" && dateEnd != "" {
+		filterManager.AddAndFilter(pagination.DateRangeFilter{
+			Field:     "trx_date",
+			StartDate: dateStart,
+			EndDate:   dateEnd,
+		})
+	}
+}
+
+// addTransactionAmountFilter adds a transaction amount filter to the FilterManager.
+func addTransactionAmountFilter(filterManager *pagination.FilterManager, trxAmount float64) {
+	if trxAmount > 0 {
+		filterManager.AddAndFilter(pagination.ComparisonFilter{
+			Field:    "trx_amount",
+			Operator: ">=",
+			Value:    trxAmount,
+		})
+	}
+}
+
+// applyManualFilters applies manual filters for account number and CIF search.
+func applyManualFilters(query *gorm.DB, accountNumber, search string) *gorm.DB {
+	if accountNumber != "" {
+		query = query.Where("account_number = ?", accountNumber)
+	}
+	query = query.Where("(trx_type = ? OR trx_type = ?)", "pengeluaran", "pemasukan")
+	if search != "" {
+		query = query.Where("cif LIKE ?", "%"+search+"%")
+	}
+	return query
 }

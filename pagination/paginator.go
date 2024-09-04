@@ -22,12 +22,12 @@ type Paginator struct {
 
 // PaginationResult contains the paginated result.
 type PaginationResult struct {
-	Data       interface{}
-	Total      int64
-	Page       int
-	PageSize   int
-	TotalPages int
-	Summary    map[string]interface{}
+	Data       interface{}            `json:"data"`
+	TotalData  int64                  `json:"totalData"`
+	Page       int                    `json:"page"`
+	PageSize   int                    `json:"pageSize"`
+	TotalPages int                    `json:"totalPages"`
+	Summary    map[string]interface{} `json:"summary,omitempty"`
 }
 
 // NewPaginator initializes a new Paginator instance with required parameters.
@@ -105,7 +105,7 @@ func (p *Paginator) Paginate(result interface{}) (*PaginationResult, error) {
 
 	return &PaginationResult{
 		Data:       result,
-		Total:      p.Total,
+		TotalData:  p.Total,
 		Page:       p.Page,
 		PageSize:   p.PageSize,
 		TotalPages: totalPages,
