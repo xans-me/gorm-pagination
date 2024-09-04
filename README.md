@@ -2,10 +2,11 @@
 # Pagination Library for Go
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Build Status](https://github.com/xans-me/gorm-pagination/actions/workflows/ci.yml/badge.svg)
+![Go version](https://img.shields.io/badge/go-1.20-blue)
+[![Coverage Status](https://coveralls.io/repos/github/xans-me/gorm-pagination/badge.svg?branch=master)](https://coveralls.io/github/xans-me/gorm-pagination?branch=master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/xans-me/gorm-pagination)](https://goreportcard.com/report/github.com/xans-me/gorm-pagination)
 [![GoDoc](https://pkg.go.dev/badge/github.com/xans-me/gorm-pagination.svg)](https://pkg.go.dev/github.com/xans-me/gorm-pagination)
-
+![Contributors](https://img.shields.io/github/contributors/xans-me/gorm-pagination)
 
 This library provides a flexible and customizable pagination solution using GORM. It includes support for filtering, sorting, and calculating summaries like sums, minimums, and maximums.
 
