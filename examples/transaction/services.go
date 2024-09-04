@@ -1,10 +1,10 @@
 package transaction
 
 import (
+	"github.com/xans-me/gorm-pagination/pagination"
 	"gorm.io/gorm"
 	"net/http"
 	"strconv"
-	"test-pagination-pg-go/pagination"
 )
 
 func GetPaginatedTransactions(r *http.Request) (interface{}, error) {

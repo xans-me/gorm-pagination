@@ -2,9 +2,9 @@ package main
 
 import (
 	"github.com/gorilla/mux"
+	"github.com/xans-me/gorm-pagination/examples/transaction"
 	"log"
 	"net/http"
-	"test-pagination-pg-go/examples/transaction"
 )
 
 func main() {

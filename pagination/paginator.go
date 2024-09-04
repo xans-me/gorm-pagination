@@ -99,6 +99,11 @@ func (p *Paginator) Paginate(result interface{}) (*Result, error) {
 		totalPages++
 	}
 
+	// **Fix for edge cases with 0 data**
+	if p.Total == 0 {
+		totalPages = 1 // Ensure there is always at least one page
+	}
+
 	// Calculate summary if requested
 	summary := p.Summary(result)
 
