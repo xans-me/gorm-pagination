@@ -1,10 +1,52 @@
 package pagination
 
-import "gorm.io/gorm"
+import (
+	"gorm.io/gorm"
+)
 
 // Filter defines an interface for applying filters.
 type Filter interface {
 	Apply(db *gorm.DB) *gorm.DB
+}
+
+// FilterManager manages multiple filters and applies them.
+type FilterManager struct {
+	AndFilters []Filter
+	OrFilters  []Filter
+}
+
+// AddAndFilter adds a filter that will be combined with AND logic.
+func (fm *FilterManager) AddAndFilter(filter Filter) {
+	fm.AndFilters = append(fm.AndFilters, filter)
+}
+
+// AddOrFilter adds a filter that will be combined with OR logic.
+func (fm *FilterManager) AddOrFilter(filter Filter) {
+	fm.OrFilters = append(fm.OrFilters, filter)
+}
+
+// Apply applies all the filters in the FilterManager to the query.
+func (fm *FilterManager) Apply(db *gorm.DB) *gorm.DB {
+	// Apply AND filters
+	for _, filter := range fm.AndFilters {
+		db = filter.Apply(db)
+	}
+
+	// Apply OR filters using a single WHERE clause
+	if len(fm.OrFilters) > 0 {
+		db = db.Where(func(db *gorm.DB) *gorm.DB {
+			for i, filter := range fm.OrFilters {
+				if i == 0 {
+					db = filter.Apply(db)
+				} else {
+					db = db.Or(filter.Apply)
+				}
+			}
+			return db
+		})
+	}
+
+	return db
 }
 
 // DateRangeFilter applies a date range filter.
@@ -18,7 +60,18 @@ func (f DateRangeFilter) Apply(db *gorm.DB) *gorm.DB {
 	return db.Where(f.Field+" BETWEEN ? AND ?", f.StartDate, f.EndDate)
 }
 
-// StatusFilter applies a status filter.
+// ComparisonFilter allows filtering with different comparison operators.
+type ComparisonFilter struct {
+	Field    string
+	Operator string // Examples: "=", ">", "<", ">=", "<=", "!="
+	Value    interface{}
+}
+
+func (f ComparisonFilter) Apply(db *gorm.DB) *gorm.DB {
+	return db.Where(f.Field+" "+f.Operator+" ?", f.Value)
+}
+
+// StatusFilter applies a status filter (used as an example of IN clause).
 type StatusFilter struct {
 	Field    string
 	Statuses []string
@@ -28,7 +81,7 @@ func (f StatusFilter) Apply(db *gorm.DB) *gorm.DB {
 	return db.Where(f.Field+" IN ?", f.Statuses)
 }
 
-// SearchFilter applies a search filter.
+// SearchFilter applies a search filter using LIKE (for string searches).
 type SearchFilter struct {
 	Field string
 	Value string

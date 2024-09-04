@@ -3,14 +3,13 @@ package pfm
 import (
 	"net/http"
 	"strconv"
-	"strings"
 	"test-pagination-pg-go/pagination"
 )
 
 func GetPaginatedTransactions(r *http.Request) (interface{}, error) {
 	db := GetDB()
 
-	// Get query parameters
+	// Ambil query parameters
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	if page == 0 {
 		page = 1
@@ -24,47 +23,76 @@ func GetPaginatedTransactions(r *http.Request) (interface{}, error) {
 	sort := r.URL.Query()["sort"]
 	dateStart := r.URL.Query().Get("dateStart")
 	dateEnd := r.URL.Query().Get("dateEnd")
-	dateColumn := r.URL.Query().Get("dateColumn")
-	if dateColumn == "" {
-		dateColumn = "trx_date" // Default date column
-	}
-	status := r.URL.Query()["status"]
-	trxType := r.URL.Query().Get("trx_type") // Get the transaction type filter
+	trxType := r.URL.Query().Get("trx_type")
+	accountNumber := r.URL.Query().Get("account_number")
+	trxAmountStr := r.URL.Query().Get("trx_amount")
+	searchTerm := r.URL.Query().Get("search") // Pencarian umum di beberapa field
 
-	// Summary fields can be specified as comma-separated values
-	summaryFields := r.URL.Query().Get("summaryFields")
-	var summaryFieldList []string
-	if summaryFields != "" {
-		summaryFieldList = strings.Split(summaryFields, ",")
-	} else {
-		summaryFieldList = []string{} // No default summary field; client must specify
+	// Konversi trxAmount ke float64
+	var trxAmount float64
+	if trxAmountStr != "" {
+		trxAmount, _ = strconv.ParseFloat(trxAmountStr, 64)
 	}
 
-	// Start building the query
-	query := db.Model(&BrimoPFM{})
+	// Buat FilterManager untuk mengelola filter
+	filterManager := pagination.FilterManager{}
 
-	// Apply date range filter
+	// Tambahkan filter AND
 	if dateStart != "" && dateEnd != "" {
-		query = query.Where(dateColumn+" BETWEEN ? AND ?", dateStart, dateEnd)
+		filterManager.AddAndFilter(pagination.DateRangeFilter{
+			Field:     "trx_date",
+			StartDate: dateStart,
+			EndDate:   dateEnd,
+		})
 	}
 
-	// Apply status filter
-	if len(status) > 0 {
-		query = query.Where("status = ?", status)
-	}
-
-	// Apply transaction type filter
 	if trxType != "" {
-		query = query.Where("trx_type = ?", trxType)
+		filterManager.AddAndFilter(pagination.ComparisonFilter{
+			Field:    "trx_type",
+			Operator: "=",
+			Value:    trxType,
+		})
 	}
 
-	// Initialize paginator with the built query
+	if accountNumber != "" {
+		filterManager.AddAndFilter(pagination.ComparisonFilter{
+			Field:    "account_number",
+			Operator: "=",
+			Value:    accountNumber,
+		})
+	}
+
+	// Tambahkan filter OR untuk trx_amount
+	if trxAmount > 0 {
+		filterManager.AddOrFilter(pagination.ComparisonFilter{
+			Field:    "trx_amount",
+			Operator: ">",
+			Value:    trxAmount,
+		})
+		filterManager.AddOrFilter(pagination.ComparisonFilter{
+			Field:    "trx_amount",
+			Operator: "=",
+			Value:    trxAmount,
+		})
+	}
+
+	// Tambahkan filter untuk pencarian umum di beberapa field (misalnya, trx_type, account_number)
+	if searchTerm != "" {
+		filterManager.AddOrFilter(pagination.SearchFilter{
+			Field: "cif",
+			Value: searchTerm,
+		})
+	}
+
+	// Terapkan filter ke query
+	query := filterManager.Apply(db.Model(&BrimoPFM{}))
+
+	// Initialize paginator dengan query yang sudah difilter
 	paginator := pagination.NewPaginator(
-		query, // Pass the query object instead of db
+		query,
 		pagination.WithPage(page),
 		pagination.WithPageSize(pageSize),
 		pagination.WithSort(sort...),
-		pagination.WithSummaryFields(summaryFieldList...),
 	)
 
 	var transactions []BrimoPFM
