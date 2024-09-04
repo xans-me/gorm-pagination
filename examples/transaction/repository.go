@@ -1,4 +1,4 @@
-package pfm
+package transaction
 
 import (
 	"log"
@@ -12,9 +12,8 @@ var db *gorm.DB
 func init() {
 	var err error
 
-	// Setup DB connection (using PostgreSQL)
-	dsn := DBDSN
-	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	// Setup DB connection (using PostgresSQL)
+	db, err = gorm.Open(postgres.Open(DSN), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("Could not connect to the database: %v", err)
 	}

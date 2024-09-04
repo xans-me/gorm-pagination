@@ -28,30 +28,9 @@ func WithSort(sort ...string) PaginatorOption {
 	}
 }
 
-// WithFilters adds filters to the paginator.
-func WithFilters(filters ...Filter) PaginatorOption {
-	return func(p *Paginator) {
-		p.Filters = append(p.Filters, filters...)
-	}
-}
-
-// WithGroupings adds groupings to the paginator.
-func WithGroupings(groups ...string) PaginatorOption {
-	return func(p *Paginator) {
-		p.Groups = append(p.Groups, groups...)
-	}
-}
-
 // WithSummaryFields sets the fields for which summaries should be calculated.
 func WithSummaryFields(fields ...string) PaginatorOption {
 	return func(p *Paginator) {
 		p.SummaryFields = fields
-	}
-}
-
-// WithOrderings adds ordering options to the paginator.
-func WithOrderings(orderings ...Ordering) PaginatorOption {
-	return func(p *Paginator) {
-		p.Orderings = append(p.Orderings, orderings...)
 	}
 }

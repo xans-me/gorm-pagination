@@ -1,8 +1,8 @@
-package pfm
+package transaction
 
 import "time"
 
-type TransactionData struct {
+type Data struct {
 	ID            int       `json:"id"`
 	AccountNumber string    `json:"account_number"`
 	TrxDate       time.Time `json:"trx_date"`
@@ -12,6 +12,6 @@ type TransactionData struct {
 	CreateDate    time.Time `json:"create_date"`
 }
 
-func (*TransactionData) TableName() string {
-	return "brimo_pfm_xan" // Pastikan nama tabel ini sesuai
+func (*Data) TableName() string {
+	return "db_name" // Pastikan nama tabel ini sesuai
 }

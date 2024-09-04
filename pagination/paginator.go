@@ -3,7 +3,6 @@ package pagination
 import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"strconv"
 	"strings"
 )
 
@@ -20,8 +19,8 @@ type Paginator struct {
 	Orderings     []Ordering
 }
 
-// PaginationResult contains the paginated result.
-type PaginationResult struct {
+// Result contains the paginated result.
+type Result struct {
 	Data       interface{}            `json:"data"`
 	TotalData  int64                  `json:"totalData"`
 	Page       int                    `json:"page"`
@@ -46,7 +45,7 @@ func NewPaginator(db *gorm.DB, options ...PaginatorOption) *Paginator {
 }
 
 // Paginate executes the pagination and returns the result.
-func (p *Paginator) Paginate(result interface{}) (*PaginationResult, error) {
+func (p *Paginator) Paginate(result interface{}) (*Result, error) {
 	if p.PageSize <= 0 {
 		return nil, ErrInvalidPageSize
 	}
@@ -103,7 +102,7 @@ func (p *Paginator) Paginate(result interface{}) (*PaginationResult, error) {
 	// Calculate summary if requested
 	summary := p.Summary(result)
 
-	return &PaginationResult{
+	return &Result{
 		Data:       result,
 		TotalData:  p.Total,
 		Page:       p.Page,
@@ -113,7 +112,7 @@ func (p *Paginator) Paginate(result interface{}) (*PaginationResult, error) {
 	}, nil
 }
 
-// Summary calculates the summary fields if requested.
+// Summary calculates the summary fields dynamically.
 func (p *Paginator) Summary(model interface{}) map[string]interface{} {
 	if len(p.SummaryFields) == 0 {
 		return nil
@@ -146,16 +145,27 @@ func (p *Paginator) Summary(model interface{}) map[string]interface{} {
 			summary[fieldName+"_max"] = maxResult
 
 		case "distribution":
+			// Generic distribution counting based on field value
 			var distribution []map[string]interface{}
 			p.DB.Model(model).Select(fieldName + ", COUNT(*) as count").Group(fieldName).Order(fieldName).Scan(&distribution)
 			summary[fieldName+"_distribution"] = distribution
 
-		case "top":
-			// Top N Categories (e.g., top 5 categories)
-			topN := 5 // Default to top 5, can be parameterized if needed
-			var topCategories []map[string]interface{}
-			p.DB.Model(model).Select(fieldName + ", COUNT(*) as count").Group(fieldName).Order("count DESC").Limit(topN).Scan(&topCategories)
-			summary[fieldName+"_top_"+strconv.Itoa(topN)+"_categories"] = topCategories
+		case "value_count":
+			// Dynamic counting of specific field values
+			if len(parts) > 2 {
+				// If specific values are provided, split them and count each
+				values := strings.Split(parts[2], "|") // Expecting values in format field:aggregationType:value1|value2|...
+				for _, value := range values {
+					var countResult int64
+					p.DB.Model(model).Where(fieldName+" = ?", value).Count(&countResult)
+					summary[fieldName+"_"+value+"_count"] = countResult
+				}
+			} else {
+				// If no specific value is provided, count non-NULL values (similar to "count")
+				var countResult int64
+				p.DB.Model(model).Where(fieldName + " IS NOT NULL").Count(&countResult)
+				summary[fieldName+"_count"] = countResult
+			}
 		}
 	}
 

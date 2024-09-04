@@ -1,18 +1,17 @@
 package main
 
 import (
+	"github.com/gorilla/mux"
 	"log"
 	"net/http"
-	"test-pagination-pg-go/pfm"
-
-	"github.com/gorilla/mux"
+	"test-pagination-pg-go/examples/transaction"
 )
 
 func main() {
 	r := mux.NewRouter()
 
 	// Register routes
-	pfm.RegisterRoutes(r)
+	transaction.RegisterRoutes(r)
 
 	// Start the server
 	log.Println("Starting server on :8080")

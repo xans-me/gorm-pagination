@@ -1,4 +1,4 @@
-package pfm
+package transaction
 
 import (
 	"gorm.io/gorm"
@@ -35,7 +35,7 @@ func GetPaginatedTransactions(r *http.Request) (interface{}, error) {
 	}
 
 	// Initialize base query
-	query := db.Model(&TransactionData{})
+	query := db.Model(&Data{})
 
 	// Initialize FilterManager
 	filterManager := pagination.FilterManager{}
@@ -53,16 +53,24 @@ func GetPaginatedTransactions(r *http.Request) (interface{}, error) {
 	// Debugging query
 	query = query.Debug()
 
-	// Initialize paginator
+	// Initialize paginator with summary fields for trx_amount, trx_type, and dynamic counting
 	paginator := pagination.NewPaginator(
 		query,
 		pagination.WithPage(page),
 		pagination.WithPageSize(pageSize),
 		pagination.WithSort(sort...),
+		// Adding various summary fields dynamically
+		pagination.WithSummaryFields(
+			"trx_amount:sum",
+			"trx_amount:min",                      // Min of trx_amount
+			"trx_amount:max",                      // Max of trx_amount// Sum of trx_amount
+			"account_number:distribution",         // Distribution of trx_type
+			"trx_type:value_count:income|expense", // Count of 'income' and 'expense'
+			"trx_type:value_count"),               // This will count all non-NULL trx_type records
 	)
 
 	// Execute pagination and return results
-	var transactions []TransactionData
+	var transactions []Data
 	result, err := paginator.Paginate(&transactions)
 	if err != nil {
 		return nil, err
@@ -98,7 +106,7 @@ func applyManualFilters(query *gorm.DB, accountNumber, search string) *gorm.DB {
 	if accountNumber != "" {
 		query = query.Where("account_number = ?", accountNumber)
 	}
-	query = query.Where("(trx_type = ? OR trx_type = ?)", "pengeluaran", "pemasukan")
+	query = query.Where("(trx_type = ? OR trx_type = ?)", "expense", "income")
 	if search != "" {
 		query = query.Where("cif LIKE ?", "%"+search+"%")
 	}
