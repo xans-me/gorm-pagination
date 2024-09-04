@@ -2,6 +2,7 @@ package pagination
 
 import (
 	"gorm.io/gorm"
+	"strings"
 )
 
 // Filter defines an interface for applying filters.
@@ -32,21 +33,36 @@ func (fm *FilterManager) Apply(db *gorm.DB) *gorm.DB {
 		db = filter.Apply(db)
 	}
 
-	// Apply OR filters using a single WHERE clause
+	// Build OR filters using raw SQL
 	if len(fm.OrFilters) > 0 {
-		db = db.Where(func(db *gorm.DB) *gorm.DB {
-			for i, filter := range fm.OrFilters {
-				if i == 0 {
-					db = filter.Apply(db)
-				} else {
-					db = db.Or(filter.Apply)
-				}
-			}
-			return db
-		})
+		var orConditions []string
+		var orValues []interface{}
+
+		// Build the OR conditions as raw SQL
+		for _, filter := range fm.OrFilters {
+			query, args := filterToSQL(filter)
+			orConditions = append(orConditions, query)
+			orValues = append(orValues, args...)
+		}
+
+		// Combine OR conditions
+		if len(orConditions) > 0 {
+			orClause := "(" + strings.Join(orConditions, " OR ") + ")"
+			db = db.Where(orClause, orValues...)
+		}
 	}
 
 	return db
+}
+
+// Helper function to convert Filter to raw SQL
+func filterToSQL(filter Filter) (string, []interface{}) {
+	switch f := filter.(type) {
+	case ComparisonFilter:
+		return f.Field + " " + f.Operator + " ?", []interface{}{f.Value}
+	default:
+		return "", nil
+	}
 }
 
 // DateRangeFilter applies a date range filter.

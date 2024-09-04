@@ -23,10 +23,8 @@ func GetPaginatedTransactions(r *http.Request) (interface{}, error) {
 	sort := r.URL.Query()["sort"]
 	dateStart := r.URL.Query().Get("dateStart")
 	dateEnd := r.URL.Query().Get("dateEnd")
-	trxType := r.URL.Query().Get("trx_type")
 	accountNumber := r.URL.Query().Get("account_number")
 	trxAmountStr := r.URL.Query().Get("trx_amount")
-	searchTerm := r.URL.Query().Get("search") // Pencarian umum di beberapa field
 
 	// Konversi trxAmount ke float64
 	var trxAmount float64
@@ -37,7 +35,7 @@ func GetPaginatedTransactions(r *http.Request) (interface{}, error) {
 	// Buat FilterManager untuk mengelola filter
 	filterManager := pagination.FilterManager{}
 
-	// Tambahkan filter AND
+	// Tambahkan filter untuk trx_date
 	if dateStart != "" && dateEnd != "" {
 		filterManager.AddAndFilter(pagination.DateRangeFilter{
 			Field:     "trx_date",
@@ -46,14 +44,7 @@ func GetPaginatedTransactions(r *http.Request) (interface{}, error) {
 		})
 	}
 
-	if trxType != "" {
-		filterManager.AddAndFilter(pagination.ComparisonFilter{
-			Field:    "trx_type",
-			Operator: "=",
-			Value:    trxType,
-		})
-	}
-
+	// Tambahkan filter untuk account_number
 	if accountNumber != "" {
 		filterManager.AddAndFilter(pagination.ComparisonFilter{
 			Field:    "account_number",
@@ -62,32 +53,32 @@ func GetPaginatedTransactions(r *http.Request) (interface{}, error) {
 		})
 	}
 
-	// Tambahkan filter OR untuk trx_amount
+	// Tambahkan filter untuk trx_amount
 	if trxAmount > 0 {
-		filterManager.AddOrFilter(pagination.ComparisonFilter{
+		filterManager.AddAndFilter(pagination.ComparisonFilter{
 			Field:    "trx_amount",
-			Operator: ">",
-			Value:    trxAmount,
-		})
-		filterManager.AddOrFilter(pagination.ComparisonFilter{
-			Field:    "trx_amount",
-			Operator: "=",
+			Operator: ">=",
 			Value:    trxAmount,
 		})
 	}
 
-	// Tambahkan filter untuk pencarian umum di beberapa field (misalnya, trx_type, account_number)
-	if searchTerm != "" {
-		filterManager.AddOrFilter(pagination.SearchFilter{
-			Field: "cif",
-			Value: searchTerm,
-		})
-	}
+	// Tambahkan filter OR untuk trx_type (pengeluaran OR pemasukan)
+	filterManager.AddOrFilter(pagination.ComparisonFilter{
+		Field:    "trx_type",
+		Operator: "=",
+		Value:    "pengeluaran",
+	})
+
+	filterManager.AddOrFilter(pagination.ComparisonFilter{
+		Field:    "trx_type",
+		Operator: "=",
+		Value:    "pemasukan",
+	})
 
 	// Terapkan filter ke query
-	query := filterManager.Apply(db.Model(&BrimoPFM{}))
+	query := filterManager.Apply(db.Model(&BrimoPFM{})).Debug()
 
-	// Initialize paginator dengan query yang sudah difilter
+	// Terapkan sorting dan pagination
 	paginator := pagination.NewPaginator(
 		query,
 		pagination.WithPage(page),
