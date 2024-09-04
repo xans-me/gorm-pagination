@@ -25,6 +25,7 @@ func GetPaginatedTransactions(r *http.Request) (interface{}, error) {
 	dateEnd := r.URL.Query().Get("dateEnd")
 	accountNumber := r.URL.Query().Get("account_number")
 	trxAmountStr := r.URL.Query().Get("trx_amount")
+	search := r.URL.Query().Get("search") // Ambil parameter search
 
 	// Konversi trxAmount ke float64
 	var trxAmount float64
@@ -74,6 +75,14 @@ func GetPaginatedTransactions(r *http.Request) (interface{}, error) {
 		Operator: "=",
 		Value:    "pemasukan",
 	})
+
+	// Tambahkan filter pencarian untuk CIF menggunakan LIKE
+	if search != "" {
+		filterManager.AddAndFilter(pagination.SearchFilter{
+			Field: "cif",  // Field CIF untuk pencarian
+			Value: search, // Nilai yang dicari
+		})
+	}
 
 	// Terapkan filter ke query
 	query := filterManager.Apply(db.Model(&BrimoPFM{})).Debug()
